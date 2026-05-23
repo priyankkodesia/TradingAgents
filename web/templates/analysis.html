@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ analysis.ticker }} / {{ analysis.analysis_date }} — HillTrade{% endblock %}
+
+{% block content %}
+<div class="p-6">
+
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-3 mb-1">
+        <a href="/dashboard" class="text-slate-400 hover:text-slate-600 text-sm">&larr; Dashboard</a>
+        <span class="text-slate-300">/</span>
+        <a href="/history" class="text-slate-400 hover:text-slate-600 text-sm">History</a>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-900">
+        <span class="font-extrabold text-indigo-600">{{ analysis.ticker }}</span>
+        <span class="text-slate-400 font-normal mx-1">—</span>
+        {{ analysis.analysis_date }}
+      </h1>
+      <p class="text-slate-500 text-sm mt-1">
+        Started by <strong>{{ analysis.username }}</strong>
+        &middot; Provider: <strong>{{ analysis.settings.provider | upper }}</strong>
+        &middot; Depth: <strong>{{ analysis.settings.research_depth }}</strong>
+        &middot; Language: <strong>{{ analysis.settings.output_language }}</strong>
+      </p>
+    </div>
+    <div class="flex items-center gap-3 shrink-0">
+      <span id="status-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold badge-{{ analysis.status }}">
+        {% if analysis.status in ('pending','running') %}<span class="spinner"></span>{% endif %}
+        <span id="status-text">{{ analysis.status }}</span>
+      </span>
+      <span id="elapsed-timer" class="text-slate-400 text-sm font-mono hidden"></span>
+    </div>
+  </div>
+
+  <!-- ── Rating banner (appears on completion) ──────────────────────── -->
+  <div id="rating-banner" class="hidden mb-6 p-4 rounded-2xl border flex items-center gap-4">
+    <div class="text-3xl font-extrabold" id="rating-text"></div>
+    <div class="text-sm text-slate-600">Final portfolio manager decision</div>
+    <a href="/analysis/{{ analysis.id }}/rerun" class="ml-auto text-sm text-indigo-600 hover:text-indigo-800 font-medium">Re-run →</a>
+  </div>
+
+  <!-- ── Main grid ───────────────────────────────────────────────────── -->
+  <div class="grid grid-cols-3 gap-5">
+
+    <!-- Left: Agent status -->
+    <div class="col-span-1">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden sticky top-5">
+        <div class="px-4 py-3 border-b border-slate-100">
+          <h2 class="text-sm font-semibold text-slate-700">Agent Progress</h2>
+        </div>
+        <table class="w-full text-xs" id="agent-table">
+          <thead>
+            <tr class="border-b border-slate-50">
+              <th class="text-left px-4 py-2 text-slate-400 font-medium">Team</th>
+              <th class="text-left px-4 py-2 text-slate-400 font-medium">Agent</th>
+              <th class="px-4 py-2 text-slate-400 font-medium text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="agent-tbody" class="divide-y divide-slate-50">
+            <!-- populated by JS -->
+          </tbody>
+        </table>
+
+        <!-- Stats footer -->
+        <div id="stats-bar" class="px-4 py-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs text-slate-500">
+          <div>LLM calls: <strong id="st-llm">—</strong></div>
+          <div>Tool calls: <strong id="st-tool">—</strong></div>
+          <div>Tokens ↑: <strong id="st-in">—</strong></div>
+          <div>Tokens ↓: <strong id="st-out">—</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Reports -->
+    <div class="col-span-2 space-y-4" id="reports-container">
+      <!-- Sections injected by JS -->
+      <div id="waiting-msg" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center text-slate-400">
+        <svg class="w-8 h-8 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <p class="text-sm">Agents are getting to work…</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Error panel -->
+  <div id="error-panel" class="hidden mt-5 p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm">
+    <strong>Analysis failed:</strong> <span id="error-msg"></span>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js"></script>
+<script>
+window.ANALYSIS_ID     = "{{ analysis.id }}";
+window.INITIAL_STATUS  = "{{ analysis.status }}";
+window.INITIAL_EVENTS  = {{ initial_events_json | safe }};
+window.INITIAL_RATING  = "{{ analysis.rating or '' }}";
+window.INITIAL_ERROR   = "{{ analysis.error or '' }}";
+window.SELECTED_ANALYSTS = {{ analysis.settings.analysts | tojson }};
+
+initAnalysisPage();
+</script>
+{% endblock %}

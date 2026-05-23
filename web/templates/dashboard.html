@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}New Analysis — HillTrade{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-3xl mx-auto">
+
+  <!-- Page header -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900">New Analysis</h1>
+    <p class="text-slate-500 text-sm mt-1">Run a full multi-agent LLM analysis on any ticker.</p>
+  </div>
+
+  {% if msg %}
+  <div class="mb-4 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">{{ msg }}</div>
+  {% endif %}
+
+  <!-- ── Analysis form ─────────────────────────────────────────────── -->
+  <form method="post" action="/analysis/start" id="analysis-form">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+      <!-- Ticker + Date row -->
+      <div class="p-6 border-b border-slate-100">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Ticker Symbol</label>
+            <input type="text" name="ticker" id="ticker-input"
+              value="{{ prefill.ticker if prefill else '' }}"
+              placeholder="AAPL, MSFT, SPY, 0700.HK…"
+              pattern="[A-Za-z0-9._\-\^]{1,32}"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm font-medium
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                     placeholder:font-normal placeholder:text-slate-400 uppercase transition"
+              required autocomplete="off" />
+            <p class="text-slate-400 text-xs mt-1">Include exchange suffix for non-US tickers</p>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Analysis Date</label>
+            <input type="date" name="analysis_date" id="date-input"
+              value="{{ prefill.analysis_date if prefill else today }}"
+              max="{{ today }}"
+              class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-slate-900 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              required />
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysts -->
+      <div class="p-6 border-b border-slate-100">
+        <label class="block text-sm font-semibold text-slate-700 mb-3">Analyst Team</label>
+        <div class="grid grid-cols-2 gap-2.5" id="analysts-group">
+          {% set sel = prefill.analysts if prefill else ['market','social','news','fundamentals'] %}
+          {% for key, label, desc in [
+            ('market',       'Market Analyst',       'Price action & technical indicators'),
+            ('social',       'Sentiment Analyst',    'News sentiment & market mood'),
+            ('news',         'News Analyst',         'Global macro & insider transactions'),
+            ('fundamentals', 'Fundamentals Analyst', 'Financials, balance sheet & ratios'),
+          ] %}
+          <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer
+                        hover:border-indigo-300 hover:bg-indigo-50/40 transition analyst-card
+                        {% if key in sel %}border-indigo-300 bg-indigo-50/40{% endif %}">
+            <input type="checkbox" name="analysts" value="{{ key }}"
+              class="mt-0.5 w-4 h-4 accent-indigo-600 analyst-check"
+              {% if key in sel %}checked{% endif %} />
+            <div>
+              <div class="text-sm font-medium text-slate-800">{{ label }}</div>
+              <div class="text-xs text-slate-500 mt-0.5">{{ desc }}</div>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ── Settings accordion ──────────────────────────────────── -->
+      <div x-data="{ open: false }" class="border-b border-slate-100">
+        <button type="button" @click="open = !open"
+          class="w-full flex items-center justify-between px-6 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Analysis Settings
+          </span>
+          <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <div x-show="open" x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+             class="px-6 pb-6 grid grid-cols-2 gap-4">
+
+          <!-- Provider -->
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">LLM Provider</label>
+            <div class="grid grid-cols-5 gap-1.5" id="provider-btns">
+              {% for key, label in providers %}
+              <button type="button"
+                class="provider-btn px-2.5 py-2 rounded-lg border text-xs font-medium transition
+                       {% if (prefill.provider if prefill else 'openai') == key %}border-indigo-500 bg-indigo-50 text-indigo-700{% else %}border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50{% endif %}"
+                data-provider="{{ key }}">{{ label }}</button>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="provider" id="provider-value" value="{{ prefill.provider if prefill else 'openai' }}" />
+          </div>
+
+          <!-- Deep model -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Deep-Thinking Model
+              <span class="normal-case font-normal text-slate-400">(Research Manager, PM)</span>
+            </label>
+            <select name="deep_model" id="deep-model-select"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 transition bg-white"></select>
+          </div>
+
+          <!-- Quick model -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Quick-Thinking Model
+              <span class="normal-case font-normal text-slate-400">(Analysts, debaters)</span>
+            </label>
+            <select name="quick_model" id="quick-model-select"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 transition bg-white"></select>
+          </div>
+
+          <!-- Research depth -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Research Depth
+              <span class="normal-case font-normal text-slate-400">(debate rounds)</span>
+            </label>
+            <select name="research_depth"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 transition bg-white">
+              {% for d in [1,2,3] %}
+              <option value="{{ d }}" {% if (prefill.research_depth if prefill else 1)|int == d %}selected{% endif %}>
+                {{ d }} round{% if d > 1 %}s{% endif %} — {% if d==1 %}Standard{% elif d==2 %}Thorough{% else %}Deep{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Language -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Output Language</label>
+            <select name="output_language"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500 transition bg-white">
+              {% set cur_lang = prefill.output_language if prefill else 'English' %}
+              {% for lang in ['English','Chinese','Spanish','Japanese','Korean','French','German','Arabic'] %}
+              <option value="{{ lang }}" {% if lang == cur_lang %}selected{% endif %}>{{ lang }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+        </div><!-- /accordion body -->
+      </div><!-- /accordion -->
+
+      <!-- Submit -->
+      <div class="px-6 py-5 bg-slate-50/60 flex items-center justify-between">
+        <p class="text-xs text-slate-400">Analysis may take 5–20 minutes depending on provider and depth.</p>
+        <button type="submit" id="submit-btn"
+          class="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
+                 text-white text-sm font-semibold rounded-xl transition shadow-sm shadow-indigo-200">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Run Analysis
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ── Recent analyses ────────────────────────────────────────── -->
+  {% if recent_analyses %}
+  <div class="mt-8">
+    <h2 class="text-base font-semibold text-slate-800 mb-3">Recent Analyses</h2>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100">
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ticker</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">By</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rating</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for a in recent_analyses %}
+          <tr class="hover:bg-slate-50/60 transition">
+            <td class="px-4 py-3 font-bold text-slate-800">{{ a.ticker }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ a.analysis_date }}</td>
+            <td class="px-4 py-3 text-slate-500">{{ a.username }}</td>
+            <td class="px-4 py-3">
+              {% set sc = {'completed':'badge-completed','running':'badge-running','failed':'badge-failed','pending':'badge-pending'} %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ sc.get(a.status, 'badge-pending') }}">
+                {% if a.status == 'running' %}<span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>{% endif %}
+                {{ a.status }}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              {% if a.rating %}
+              {% set rc = {'Buy':'badge-buy','Overweight':'badge-overweight','Hold':'badge-hold','Underweight':'badge-underweight','Sell':'badge-sell'} %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold {{ rc.get(a.rating, '') }}">{{ a.rating }}</span>
+              {% else %}<span class="text-slate-300">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="/analysis/{{ a.id }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium mr-2">View →</a>
+              <a href="/analysis/{{ a.id }}/rerun" class="text-slate-400 hover:text-slate-600 text-xs">Re-run</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CATALOG = {{ model_catalog_json | safe }};
+
+function getModels(provider, mode) {
+  const opts = CATALOG[provider]?.[mode] || [];
+  return opts.map(([label, value]) => ({ label, value }));
+}
+
+function populateSelect(selectEl, options, currentValue) {
+  selectEl.innerHTML = '';
+  options.forEach(({ label, value }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    if (value === currentValue) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+let currentProvider = document.getElementById('provider-value').value;
+const deepSel  = document.getElementById('deep-model-select');
+const quickSel = document.getElementById('quick-model-select');
+
+function updateModels(provider, prefillDeep, prefillQuick) {
+  populateSelect(deepSel,  getModels(provider, 'deep'),  prefillDeep  || '');
+  populateSelect(quickSel, getModels(provider, 'quick'), prefillQuick || '');
+}
+
+// Init on load
+const prefillDeep  = "{{ prefill.deep_model  if prefill else '' }}";
+const prefillQuick = "{{ prefill.quick_model if prefill else '' }}";
+updateModels(currentProvider, prefillDeep, prefillQuick);
+
+// Provider button clicks
+document.getElementById('provider-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.provider-btn');
+  if (!btn) return;
+  currentProvider = btn.dataset.provider;
+  document.getElementById('provider-value').value = currentProvider;
+  document.querySelectorAll('.provider-btn').forEach(b => {
+    b.className = b.className
+      .replace('border-indigo-500 bg-indigo-50 text-indigo-700', '')
+      .replace('border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50', '')
+      .trim();
+    if (b === btn) {
+      b.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700');
+    } else {
+      b.classList.add('border-slate-200', 'text-slate-600', 'hover:border-slate-300', 'hover:bg-slate-50');
+    }
+  });
+  updateModels(currentProvider);
+});
+
+// Analyst card highlight on check
+document.querySelectorAll('.analyst-check').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const card = cb.closest('.analyst-card');
+    if (cb.checked) {
+      card.classList.add('border-indigo-300', 'bg-indigo-50/40');
+    } else {
+      card.classList.remove('border-indigo-300', 'bg-indigo-50/40');
+    }
+  });
+});
+
+// Ticker: force uppercase
+document.getElementById('ticker-input').addEventListener('input', e => {
+  const pos = e.target.selectionStart;
+  e.target.value = e.target.value.toUpperCase();
+  e.target.setSelectionRange(pos, pos);
+});
+
+// Submit: prevent double-click
+document.getElementById('analysis-form').addEventListener('submit', () => {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Starting…';
+});
+</script>
+{% endblock %}

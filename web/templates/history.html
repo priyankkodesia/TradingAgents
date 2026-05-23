@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}History — HillTrade{% endblock %}
+
+{% block content %}
+<div class="p-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Analysis History</h1>
+      <p class="text-slate-500 text-sm mt-1">All analyses across all users — {{ analyses | length }} total</p>
+    </div>
+    <a href="/dashboard"
+      class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      New Analysis
+    </a>
+  </div>
+
+  <!-- Filter bar -->
+  <div x-data="{ q: '', status: '', rating: '' }" class="mb-4">
+    <div class="flex gap-3">
+      <input x-model="q" type="text" placeholder="Filter by ticker or user…"
+        class="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 transition placeholder:text-slate-400" />
+      <select x-model="status"
+        class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-sm bg-white
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        <option value="">All statuses</option>
+        <option value="completed">Completed</option>
+        <option value="running">Running</option>
+        <option value="failed">Failed</option>
+        <option value="pending">Pending</option>
+      </select>
+      <select x-model="rating"
+        class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-sm bg-white
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        <option value="">All ratings</option>
+        <option value="Buy">Buy</option>
+        <option value="Overweight">Overweight</option>
+        <option value="Hold">Hold</option>
+        <option value="Underweight">Underweight</option>
+        <option value="Sell">Sell</option>
+      </select>
+    </div>
+
+    {% if analyses %}
+    <div class="mt-4 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-100 bg-slate-50/60">
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Started</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">By</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ticker</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Anal. Date</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rating</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Duration</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for a in analyses %}
+          {% set row_id = loop.index %}
+          <tr class="hover:bg-slate-50/60 transition history-row"
+              data-ticker="{{ a.ticker }}"
+              data-user="{{ a.username }}"
+              data-status="{{ a.status }}"
+              data-rating="{{ a.rating or '' }}"
+              x-show="
+                (q === '' || '{{ a.ticker }}'.toLowerCase().includes(q.toLowerCase()) || '{{ a.username }}'.toLowerCase().includes(q.toLowerCase())) &&
+                (status === '' || status === '{{ a.status }}') &&
+                (rating === '' || rating === '{{ a.rating or '' }}')
+              ">
+            <td class="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+              {{ a.created_at[:16].replace('T', ' ') if a.created_at else '—' }}
+            </td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center gap-1.5 text-slate-600 text-xs">
+                <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                  {{ a.username[0].upper() if a.username else '?' }}
+                </span>
+                {{ a.username }}
+              </span>
+            </td>
+            <td class="px-4 py-3 font-bold text-slate-900">{{ a.ticker }}</td>
+            <td class="px-4 py-3 text-slate-600">{{ a.analysis_date }}</td>
+            <td class="px-4 py-3">
+              {% set sc = {'completed':'badge-completed','running':'badge-running','failed':'badge-failed','pending':'badge-pending'} %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ sc.get(a.status,'badge-pending') }}">
+                {% if a.status == 'running' %}<span class="spinner" style="width:9px;height:9px;border-width:1.5px"></span>{% endif %}
+                {{ a.status }}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              {% if a.rating %}
+                {% set rc = {'Buy':'badge-buy','Overweight':'badge-overweight','Hold':'badge-hold','Underweight':'badge-underweight','Sell':'badge-sell'} %}
+                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold {{ rc.get(a.rating,'') }}">{{ a.rating }}</span>
+              {% else %}<span class="text-slate-300 text-xs">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-slate-400 text-xs font-mono">
+              {% if a.created_at and a.completed_at %}
+                {% set dur = ((a.completed_at[:19] | string) | replace('T',' ')) %}
+                <span class="duration-cell" data-start="{{ a.created_at }}" data-end="{{ a.completed_at }}"></span>
+              {% elif a.status == 'running' %}
+                <span class="running-dur" data-start="{{ a.created_at }}"></span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <a href="/analysis/{{ a.id }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium mr-2">View →</a>
+              <a href="/analysis/{{ a.id }}/rerun" class="text-slate-400 hover:text-slate-600 text-xs">Re-run</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="mt-4 bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+      <p class="text-sm">No analyses yet. <a href="/dashboard" class="text-indigo-600 hover:underline">Run your first one →</a></p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Compute durations
+function fmtSeconds(secs) {
+  const m = Math.floor(secs / 60), s = Math.floor(secs % 60);
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+document.querySelectorAll('.duration-cell').forEach(el => {
+  const start = new Date(el.dataset.start), end = new Date(el.dataset.end);
+  if (!isNaN(start) && !isNaN(end)) el.textContent = fmtSeconds((end - start) / 1000);
+});
+// Running durations (live)
+function updateRunningDurations() {
+  document.querySelectorAll('.running-dur').forEach(el => {
+    const start = new Date(el.dataset.start);
+    if (!isNaN(start)) el.textContent = fmtSeconds((Date.now() - start) / 1000);
+  });
+}
+updateRunningDurations();
+setInterval(updateRunningDurations, 1000);
+</script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}News Analyser — HillTrade{% endblock %}
+
+{% block content %}
+<div class="px-8 py-8 max-w-4xl mx-auto">
+
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-slate-900">News Analyser</h1>
+    <p class="text-slate-500 text-sm mt-1">
+      Paste any news headline or story. Get a full macro → sector → stock impact analysis
+      for both US and Indian markets.
+    </p>
+  </div>
+
+  <!-- Search form -->
+  <form method="post" action="/news/analyze" x-data="{ submitting: false }"
+        @submit="submitting = true">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <label class="block text-sm font-semibold text-slate-700 mb-2">
+        News Event
+      </label>
+      <textarea
+        name="news_text"
+        rows="6"
+        required
+        placeholder="e.g. 'The US Federal Reserve raised interest rates by 50 basis points, the largest hike in 22 years, citing persistent inflation at 8.5%...'
+
+Or paste an entire article. The more context you provide, the sharper the analysis."
+        class="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800
+               placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500
+               focus:border-indigo-500 resize-none leading-relaxed"
+      ></textarea>
+
+      <div class="flex items-center justify-between mt-4">
+        <p class="text-xs text-slate-400">
+          Analysis covers: event classification · historical analogues · causal chain ·
+          US stocks (NYSE/NASDAQ) · Indian stocks (NSE/BSE) · macro overlay · final verdict
+        </p>
+        <button
+          type="submit"
+          :disabled="submitting"
+          class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60
+                 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+        >
+          <template x-if="submitting">
+            <span class="spinner"></span>
+          </template>
+          <template x-if="!submitting">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </template>
+          <span x-text="submitting ? 'Analysing…' : 'Analyse'"></span>
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- Example prompts -->
+  <div class="mt-6">
+    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Try an example</p>
+    <div class="flex flex-wrap gap-2">
+      {% set examples = [
+        "US Federal Reserve raises interest rates by 50 basis points citing persistent inflation",
+        "India and Pakistan engage in military conflict along the border",
+        "Oil prices surge 20% after OPEC announces major production cuts",
+        "China imposes new export restrictions on rare earth minerals",
+        "US announces sweeping new tariffs on all Chinese imports",
+      ] %}
+      {% for ex in examples %}
+      <button
+        onclick="document.querySelector('textarea[name=news_text]').value = this.dataset.text"
+        data-text="{{ ex }}"
+        class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-full
+               transition-colors cursor-pointer border-0"
+      >{{ ex[:60] }}{% if ex|length > 60 %}…{% endif %}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent analyses -->
+  {% if recent_analyses %}
+  <div class="mt-10">
+    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recent Analyses</p>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+      {% for a in recent_analyses %}
+      <a href="/news/{{ a.id }}"
+         class="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors group">
+        <div class="shrink-0">
+          {% if a.status == 'completed' %}
+            <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+          {% elif a.status == 'running' %}
+            <span class="spinner"></span>
+          {% elif a.status == 'failed' %}
+            <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+          {% else %}
+            <span class="w-2 h-2 rounded-full bg-slate-300 inline-block"></span>
+          {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+            {{ a.news_text[:120] }}{% if a.news_text|length > 120 %}…{% endif %}
+          </p>
+          <p class="text-xs text-slate-400 mt-0.5">
+            by {{ a.username }} · {{ a.created_at[:16].replace('T', ' ') }}
+          </p>
+        </div>
+        <svg class="w-4 h-4 text-slate-300 group-hover:text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
